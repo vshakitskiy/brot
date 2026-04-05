@@ -1,0 +1,12 @@
+name = "brot"
+version = "1.0.0"
+description = "Gleam bindings for Brotli compression."
+target = "erlang"
+licences = ["Apache-2.0"]
+repository = { type = "github", user = "vshakitskiy", repo = "brot" }
+
+[dependencies]
+brotli = ">= 0.3.3 and < 1.0.0"
+
+[dev_dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
