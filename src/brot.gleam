@@ -1,5 +1,3 @@
-//// Gleam bindings for Brotli compression.
-//// 
 //// Brotli is a general-purpose compression algorithm developed by Google that
 //// offers compression ratios comparable to the best currently available 
 //// methods. It's particularly effective for web content and is supported 
@@ -7,20 +5,121 @@
 //// 
 //// Brotli compression is most effective for data larger than ~1KB. For very 
 //// small data, the compression overhead may result in larger output.
+//// 
+//// ### Examples
+//// 
+//// Simple decompression:
+//// ```gleam
+//// simplifile.read_bits("payload.br")
+//// |> result.replace_error(Nil)
+//// |> result.try(brot.decode)
+//// ```
+//// 
+//// Encoding with custom options:
+//// ```gleam
+//// brot.Options(..brot.default_options, quality: 3, window: 10)
+//// |> brot.encode_with(payload, _)
+//// |> result.map(simplifile.write_bits("payload.br", _))
+//// ```
+//// 
+//// Working with streaming data:
+//// ```gleam
+//// let encoder = brot.new_encoder()
+//// list.map(chunks, brot.append_encoder(encoder, _))
+//// brot.finish_encoder(encoder)
+//// ```
+//// 
+//// <script>
+//// const docs = [
+////   {
+////     header: "Options",
+////     functions: ["default_options"]
+////   },
+////   {
+////     header: "Simple",
+////     functions: ["encode", "decode", "encode_with"]
+////   },
+////   {
+////     header: "Encoder",
+////     functions: [
+////       "new_encoder", 
+////       "new_encoder_with", 
+////        "append_encoder", 
+////        "is_encoder_finished", 
+////        "finish_encoder", 
+////        "finish_encoder_with"
+////     ]
+////   },
+////   {
+////     header: "Decoder",
+////     functions: ["new_decoder", "stream_decoder", "is_decoder_finished"]
+////   }
+//// ]
+////
+//// const callback = () => {
+////   const list = document.querySelector(".sidebar > ul:last-of-type")
+////   const sortedLists = document.createDocumentFragment()
+////   const sortedMembers = document.createDocumentFragment()
+////
+////   for (const section of docs) {
+////     sortedLists.append((() => {
+////       const node = document.createElement("h3")
+////       node.append(section.header)
+////       return node
+////     })())
+////     sortedMembers.append((() => {
+////       const node = document.createElement("h2")
+////       node.append(section.header)
+////       return node
+////     })())
+////
+////     const sortedList = document.createElement("ul")
+////     sortedLists.append(sortedList)
+////
+////     const sortedFunctions = [...section.functions].sort()
+////
+////     for (const funcName of sortedFunctions) {
+////       const href = `#${funcName}`
+////       const member = document.querySelector(
+////         `.member:has(h2 > a[href="${href}"])`
+////       )
+////       const sidebar = list.querySelector(`li:has(a[href="${href}"])`)
+////       sortedList.append(sidebar)
+////       sortedMembers.append(member)
+////     }
+////   }
+////
+////   document.querySelector(".sidebar").insertBefore(sortedLists, list)
+////   document
+////     .querySelector(".module-members:has(#module-values)")
+////     .insertBefore(
+////       sortedMembers,
+////       document.querySelector("#module-values").nextSibling
+////     )
+//// }
+////
+//// document.readyState !== "loading"
+////   ? callback()
+////   : document.addEventListener(
+////     "DOMContentLoaded",
+////     callback,
+////     { once: true }
+////   )
+//// </script>
 
 /// Compresses data using Brotli with default settings. For custom compression 
-/// settings, use `encode_with`. Returns the compressed data or error if 
+/// settings, use `encode_with`. Returns the compressed data or an error if 
 /// compression fails.
 @external(erlang, "brot_ffi", "encode")
 pub fn encode(data: BitArray) -> Result(BitArray, Nil)
 
 /// Decompresses Brotli-compressed data. Returns the decompressed original data
-/// or error if decompression fails.
+/// or an error if decompression fails.
 @external(erlang, "brot_ffi", "decode")
 pub fn decode(data: BitArray) -> Result(BitArray, Nil)
 
-/// Compression mode that tunes the encoder for different types of content.
-/// The mode affects how Brotli analyzes and compresses the input data.
+/// Tunes the encoder for different types of content, affecting how Brotli 
+/// analyzes and compresses the input data
 pub type Mode {
   /// General-purpose compression suitable for any type of data. Use this when 
   /// you're unsure or have mixed content types.
@@ -33,8 +132,7 @@ pub type Mode {
   Font
 }
 
-/// Configuration options for Brotli compression. These options control the 
-/// trade-offs between compression ratio, speed, and memory usage.
+/// Controls the trade-offs between compression ratio, speed, and memory usage.
 pub type Options {
   Options(
     /// Compression mode optimized for content type.
@@ -45,7 +143,7 @@ pub type Options {
     quality: Int,
     /// Base-2 logarithm of the sliding window size, from 10 to 24. Larger 
     /// windows can improve compression ratio but use more memory. Default is 22
-    /// (4MB window). For `large_window` set to `True`, can go up to 24.
+    /// (4MB window). If `large_window` is `True`, can go up to 30 (1GB).
     window: Int,
     /// Maximum input block size, use 0 for automatic. If non-zero, splits input 
     /// into blocks of this size for processing.
@@ -56,8 +154,8 @@ pub type Options {
     /// Estimated total input size in bytes, use 0 if unknown. Helps the encoder 
     /// optimize memory allocation and compression strategy.
     size_hint: Int,
-    /// Enable large window support, that allows to have window sizes of 
-    /// 16MB-32MB.
+    /// Enable large window support. When `True`, allows the `window` parameter 
+    /// to exceed the standard maximum of 24, up to 30 (1GB).
     large_window: Bool,
     /// Number of postfix bits for distance codes, from 0 to 3. Advanced tuning 
     /// parameter. Use 0 unless you know what you're doing.
@@ -72,9 +170,8 @@ pub type Options {
   )
 }
 
-/// Default compression options with balanced settings. Uses maximum 
-/// compression, 4MB window, and generic mode. These defaults match the Brotli 
-/// reference implementation.
+/// Default compression options matching the Brotli reference implementation. 
+/// Uses maximum compression, 4MB window, and generic mode.
 ///
 /// Reference: https://github.com/google/brotli/blob/master/c/enc/encode.c#L681
 pub const default_options = Options(
@@ -91,8 +188,8 @@ pub const default_options = Options(
 )
 
 /// Compresses data using Brotli with custom options. This allows fine-tuned 
-/// control over compression parameters. Returns the compressed data or error
-/// if fails.
+/// control over compression parameters. Returns the compressed data, or an 
+/// error if compression fails.
 @external(erlang, "brot_ffi", "encode_with")
 pub fn encode_with(data: BitArray, options: Options) -> Result(BitArray, Nil)
 
@@ -111,7 +208,7 @@ pub fn new_encoder_with(options: Options) -> Encoder
 
 /// Appends data to a streaming encoder and returns any available compressed 
 /// output. The encoder may buffer data internally, so compressed output might 
-/// not be available immediately for small inputs. Returns error if encoding
+/// not be available immediately for small inputs. Returns an error if encoding
 /// fails.
 @external(erlang, "brot_ffi", "append_encoder")
 pub fn append_encoder(encoder: Encoder, data: BitArray) -> Result(BitArray, Nil)
@@ -125,13 +222,13 @@ pub fn is_encoder_finished(encoder: Encoder) -> Bool
 /// Finalizes the encoder and returns any remaining compressed output. This 
 /// flushes all internal buffers and completes the compression stream. After 
 /// calling this, the encoder is finished and should not be used further. 
-/// Returns error if finishing fails.
+/// Returns an error if finishing fails.
 @external(erlang, "brot_ffi", "finish_encoder")
 pub fn finish_encoder(encoder: Encoder) -> Result(BitArray, Nil)
 
 /// Appends final data to the encoder and immediately finishes compression. This 
 /// is a convenience function that combines `append_encoder` and 
-/// `finish_encoder`. Returns all remaining compressed output, or error if 
+/// `finish_encoder`. Returns all remaining compressed output, or an error if 
 /// encoding or finishing fails.
 @external(erlang, "brot_ffi", "finish_encoder_with")
 pub fn finish_encoder_with(
@@ -160,7 +257,7 @@ pub type StreamOutcome {
 
 /// Feeds compressed data to a streaming decoder and returns decompressed output.
 /// The decoder processes data incrementally and indicates whether more input is 
-/// needed. Returns error if decompression fails.
+/// needed. Returns an error if decompression fails.
 @external(erlang, "brot_ffi", "stream_decoder")
 pub fn stream_decoder(
   decoder: Decoder,
